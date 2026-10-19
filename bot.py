@@ -5,6 +5,7 @@ from pathlib import Path
 
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+THREAD_ID = int(os.environ["TELEGRAM_THREAD_ID"])
 X_USERNAME = os.environ["X_USERNAME"].lstrip("@")
 
 STATE_FILE = Path("last_tweet.json")
@@ -65,6 +66,7 @@ def send_text(text):
         "sendMessage",
         {
             "chat_id": CHAT_ID,
+            "message_thread_id": THREAD_ID,
             "text": text,
             "disable_web_page_preview": False,
         },
@@ -76,6 +78,7 @@ def send_photo(url, caption=""):
         "sendPhoto",
         {
             "chat_id": CHAT_ID,
+            "message_thread_id": THREAD_ID,
             "photo": url,
             "caption": caption[:1024],
         },
@@ -98,6 +101,7 @@ def send_media_group(media, caption=""):
         "sendMediaGroup",
         {
             "chat_id": CHAT_ID,
+            "message_thread_id": THREAD_ID,
             "media": items,
         },
     )
@@ -108,6 +112,7 @@ def send_video(url, caption=""):
         "sendVideo",
         {
             "chat_id": CHAT_ID,
+            "message_thread_id": THREAD_ID,
             "video": url,
             "caption": caption[:1024],
             "supports_streaming": True,
