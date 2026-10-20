@@ -6,17 +6,21 @@ from pathlib import Path
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 THREAD_ID = int(os.environ["TELEGRAM_THREAD_ID"])
-X_USERNAME = os.environ["X_USERNAME"].lstrip("@")
+
+ALICE_X_USERNAME = os.environ["X_USERNAME"].lstrip("@")
+KIXLY_X_USERNAME = os.environ["KIXLY_X_USERNAME"].lstrip("@")
+X_USERNAMES = [ALICE_X_USERNAME, KIXLY_X_USERNAME]
 
 STATE_FILE = Path("last_tweet.json")
 
 TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
-FX_API = f"https://api.fxtwitter.com/2/profile/{X_USERNAME}/statuses"
 
 
-def get_latest_posts():
+def get_latest_posts(username):
+    fx_api = f"https://api.fxtwitter.com/2/profile/{username}/statuses"
+
     r = requests.get(
-        FX_API,
+        fx_api,
         params={"limit": 10},
         headers={"User-Agent": "alice-x-telegram/1.0"},
         timeout=30,
@@ -24,30 +28,39 @@ def get_latest_posts():
     r.raise_for_status()
 
     data = r.json()
-
-    # FxTwitter timeline endpoints normally expose posts as results.
     posts = data.get("results", [])
 
     if not posts:
-        print("No posts returned.")
+        print(f"No posts returned for @{username}.")
         return []
 
     return posts
 
 
-def load_last_id():
+def load_state():
     if not STATE_FILE.exists():
-        return None
+        return {}
 
     try:
-        return json.loads(STATE_FILE.read_text()).get("last_id")
+        data = json.loads(STATE_FILE.read_text())
+
+        # Backward compatibility with the old single-account format:
+        # {"last_id": "..."}
+        if "last_id" in data:
+            return {ALICE_X_USERNAME: str(data["last_id"])}
+
+        return {
+            username: str(tweet_id)
+            for username, tweet_id in data.items()
+            if tweet_id is not None
+        }
     except Exception:
-        return None
+        return {}
 
 
-def save_last_id(tweet_id):
+def save_state(state):
     STATE_FILE.write_text(
-        json.dumps({"last_id": str(tweet_id)}, indent=2)
+        json.dumps(state, indent=2, sort_keys=True)
     )
 
 
@@ -120,13 +133,13 @@ def send_video(url, caption=""):
     )
 
 
-def send_post(post):
+def send_post(post, fallback_username):
     tweet_id = str(post["id"])
     text = post.get("text", "").strip()
 
     author = post.get("author") or {}
-    name = author.get("name", X_USERNAME)
-    handle = author.get("screen_name", X_USERNAME)
+    name = author.get("name", fallback_username)
+    handle = author.get("screen_name", fallback_username)
 
     tweet_url = post.get("url") or (
         f"https://x.com/{handle}/status/{tweet_id}"
@@ -157,23 +170,23 @@ def send_post(post):
         send_text(caption)
 
 
-def main():
-    posts = get_latest_posts()
+def process_account(username, state):
+    posts = get_latest_posts(username)
 
     if not posts:
         return
 
     # Highest Snowflake ID = newest post.
     posts = sorted(posts, key=lambda p: int(p["id"]))
+    last_id = state.get(username)
 
-    last_id = load_last_id()
-
-    # First run:
-    # save the newest existing post without forwarding old tweets.
+    # First run for this account:
+    # save the newest existing post without forwarding old posts.
     if last_id is None:
-        newest = posts[-1]["id"]
-        save_last_id(newest)
-        print(f"Initialized at tweet {newest}.")
+        newest = str(posts[-1]["id"])
+        state[username] = newest
+        save_state(state)
+        print(f"Initialized @{username} at post {newest}.")
         return
 
     new_posts = [
@@ -183,13 +196,21 @@ def main():
     ]
 
     if not new_posts:
-        print("No new posts.")
+        print(f"No new posts for @{username}.")
         return
 
     for post in new_posts:
-        send_post(post)
-        save_last_id(post["id"])
-        print(f"Sent {post['id']}")
+        send_post(post, username)
+        state[username] = str(post["id"])
+        save_state(state)
+        print(f"Sent @{username} post {post['id']}")
+
+
+def main():
+    state = load_state()
+
+    for username in X_USERNAMES:
+        process_account(username, state)
 
 
 if __name__ == "__main__":
