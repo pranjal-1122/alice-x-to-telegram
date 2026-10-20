@@ -1,0 +1,35 @@
+name: Manual X Post to Telegram
+
+on:
+  workflow_dispatch:
+    inputs:
+      tweet_id:
+        description: "X/Twitter post ID to send to Telegram"
+        required: true
+        type: string
+
+jobs:
+  post-tweet:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install requirements
+        run: pip install -r requirements.txt
+
+      - name: Send selected X post to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_THREAD_ID: ${{ secrets.TELEGRAM_THREAD_ID }}
+          X_USERNAME: ${{ secrets.X_USERNAME }}
+          KIXLY_X_USERNAME: ${{ secrets.KIXLY_X_USERNAME }}
+          TWEET_ID: ${{ inputs.tweet_id }}
+        run: python manual_post.py
