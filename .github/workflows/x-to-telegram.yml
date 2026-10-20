@@ -28,6 +28,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_THREAD_ID: ${{ secrets.TELEGRAM_THREAD_ID }}
           X_USERNAME: ${{ secrets.X_USERNAME }}
+          KIXLY_X_USERNAME: ${{ secrets.KIXLY_X_USERNAME }}
         run: python bot.py
 
       - name: Save latest tweet state
