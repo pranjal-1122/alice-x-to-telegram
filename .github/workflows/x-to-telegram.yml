@@ -3,6 +3,10 @@ name: X to Telegram
 on:
   workflow_dispatch:
 
+concurrency:
+  group: x-to-telegram-sync
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -32,6 +36,7 @@ jobs:
         run: python bot.py
 
       - name: Save latest tweet state
+        if: always()
         run: |
           if [ -f last_tweet.json ]; then
             git config user.name "github-actions[bot]"
