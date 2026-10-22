@@ -208,9 +208,20 @@ def process_account(username, state):
 
 def main():
     state = load_state()
+    errors = []
 
     for username in X_USERNAMES:
-        process_account(username, state)
+        try:
+            process_account(username, state)
+        except Exception as exc:
+            # Keep processing the other account. The workflow will still persist
+            # any state changes from posts that were already sent successfully.
+            print(f"ERROR processing @{username}: {exc}")
+            errors.append((username, exc))
+
+    if errors:
+        failed = ", ".join(f"@{username}" for username, _ in errors)
+        raise RuntimeError(f"Sync failed for: {failed}")
 
 
 if __name__ == "__main__":
